@@ -145,16 +145,17 @@ For release documentation, create a separate workflow triggered by release event
 The action handles version management through the following rules:
 
 1. **Version Detection**:
-    - Reads base version from `PROJECT(VERSION X.Y.Z)` in `CMakeLists.txt`
-    - Checks for `RC_VERSION` to determine if it's a release candidate
-    - When neither is defined, treats as development (SNAPSHOT) version
+    - Reads version from `PROJECT(VERSION X.Y.Z[.T])` in `CMakeLists.txt`
+    - Without explicit version parameter, treats as development (SNAPSHOT) version
 
 2. **Version Types**:
-    - Release (`X.Y.Z`): Final, stable versions
-    - Release Candidate (`X.Y.Z-rcN`): Pre-release versions
-    - SNAPSHOT (`X.Y.Z-SNAPSHOT`): Development versions
+    - Base version (`X.Y.Z`): Matches Java reference version
+    - Fix version (`X.Y.Z.T`): C++-specific fixes for Java version X.Y.Z
+    - SNAPSHOT (`X.Y.Z[.T]-SNAPSHOT`): Development versions
 
 3. **Version Lifecycle**:
     - SNAPSHOT versions are replaced when their corresponding release is published
-    - RC versions can exist alongside their base versions
+    - All non-SNAPSHOT versions are considered stable
     - Latest stable version is always accessible via the `latest-stable` symlink
+    - The fourth number (T) represents C++-specific fixes for a given Java version
+    - A version can't have both released and SNAPSHOT states at the same time
