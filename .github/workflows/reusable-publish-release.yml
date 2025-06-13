@@ -2,11 +2,6 @@ name: Reusable - Publish Release to Maven Central
 
 on:
   workflow_call:
-    secrets:
-      CENTRAL_SONATYPE_TOKEN_USERNAME: { required: true }
-      CENTRAL_SONATYPE_TOKEN_PASSWORD: { required: true }
-      GPG_PRIVATE_KEY: { required: true }
-      GPG_PASSPHRASE: { required: true }
     inputs:
       java-version:
         default: '21'
