@@ -2,11 +2,6 @@ name: Reusable - Publish Snapshot to Maven Central
 
 on:
   workflow_call:
-    secrets:
-      CENTRAL_SONATYPE_TOKEN_USERNAME:
-        required: true
-      CENTRAL_SONATYPE_TOKEN_PASSWORD:
-        required: true
     inputs:
       java-version:
         required: false
