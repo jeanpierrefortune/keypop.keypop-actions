@@ -1,0 +1,73 @@
+name: Reusable - Publish Release to Maven Central
+
+on:
+  workflow_call:
+    secrets:
+      CENTRAL_SONATYPE_TOKEN_USERNAME: { required: true }
+      CENTRAL_SONATYPE_TOKEN_PASSWORD: { required: true }
+      GPG_PRIVATE_KEY: { required: true }
+      GPG_PASSPHRASE: { required: true }
+    inputs:
+      java-version:
+        default: '21'
+        type: string
+      java-distribution:
+        default: 'temurin'
+        type: string
+      namespace:
+        default: 'org.eclipse.keypop'
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_VERSION: ${{ inputs.java-version }}
+      JAVA_DISTRIBUTION: ${{ inputs.java-distribution }}
+      NAMESPACE: ${{ inputs.namespace }}
+      SONATYPE_DEPLOY_URL: https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Set project version from release tag
+        run: echo "VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Retrieve fingerprint of the signing subkey
+        id: fingerprint
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" > private.key
+          gpg --batch --import private.key
+          fingerprint=$(gpg --list-keys --with-subkey-fingerprint | awk '/^sub/ {getline; print $1}')
+          echo "fingerprint=$fingerprint" >> $GITHUB_OUTPUT
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
+
+      - name: Build and publish release
+        env:
+          ORG_GRADLE_PROJECT_sonatypeURL: ${{ env.SONATYPE_DEPLOY_URL }}
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.CENTRAL_SONATYPE_TOKEN_USERNAME }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.CENTRAL_SONATYPE_TOKEN_PASSWORD }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          echo "Building and publishing release package..."
+          ./gradlew build publish -PRELEASE --info --stacktrace
+
+      - name: Trigger manual upload to Central
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer $(echo -n '${{ secrets.CENTRAL_SONATYPE_TOKEN_USERNAME }}:${{ secrets.CENTRAL_SONATYPE_TOKEN_PASSWORD }}' | base64)" \
+            -H "Content-Type: application/json" \
+            https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/${{ env.NAMESPACE }}?publishing_type=automatic

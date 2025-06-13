@@ -1,41 +1,94 @@
-# Eclipse Keypop GitHub Actions
+# keypop-actions
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Collection of GitHub Actions for automating various tasks in Eclipse Keypop libraries and projects.
+This repository contains all **GitHub Actions** and **reusable workflows** for the `eclipse-keypop` organization. It’s structured to separate **custom composite actions**, **reusable workflows**, and to clearly mark **deprecated** items.
 
-## Available Actions
+---
 
-### Doxygen Documentation
-Action for generating and publishing C++ API reference documentation. [See detailed documentation](docs/doxygen-action.md)
+## 🔁 Reusable Workflows
 
-## Using Actions
+These can be invoked in any org repo via `workflow_call`:
 
-Actions in this repository can be referenced using Git tags. When referencing an action, you must specify a tag to ensure workflow stability and reproducibility.
+| Name                           | Description                                           | Path                                                           |
+|--------------------------------|-------------------------------------------------------|----------------------------------------------------------------|
+| Publish Snapshot               | Publish snapshot versions to Maven Central           | `.github/workflows/reusable-publish-snapshot.yml`             |
+| Publish Release                | Publish official releases to Maven Central           | `.github/workflows/reusable-publish-release.yml`              |
+
+---
+
+## 🔧 Custom Composite Actions
+
+These live under `actions/`.
+
+| Name             | Description                      | Path                                  | Status        |
+|------------------|----------------------------------|---------------------------------------|---------------|
+| doxygen          | Run Doxygen to generate API docs | `actions/doxygen/action.yml`          | **Active**    |
+
+---
+
+## 📘 Usage Examples
+
+### 1. Calling a reusable workflow
 
 ```yaml
-# Reference format:
-- uses: eclipse-keypop/actions/{action-name}@{tag}
+name: Publish Snapshot
 
-# Example with specific version:
-- uses: eclipse-keypop/actions/doxygen@v1.0.0
+on:
+  push:
+    branches: [ main ]
 
-# Example with major version only (automatically uses latest minor/patch):
-- uses: eclipse-keypop/actions/doxygen@v1
+jobs:
+  publish:
+    uses: eclipse-keypop/keypop-actions/.github/workflows/reusable-publish-snapshot.yml@publish-snapshot-v1
+    with:
+      artifact: build/libs/mylib.jar
+    secrets:
+      OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+````
+
+### 2. Using a composite action
+
+```yaml
+- name: Generate Doxygen Documentation
+  uses: eclipse-keypop/keypop-actions/actions/doxygen@doxygen-v1
 ```
 
-We follow semantic versioning for our actions:
-- Major version tags (e.g., `v1`): Point to the latest stable release within that major version
-- Specific version tags (e.g., `v1.0.0`): Point to exact versions
-- Using specific versions is recommended for production workflows
-- Using major version tags is acceptable for development workflows
+### 3. (Deprecated) Old Doxygen action
 
-**Note**: Avoid using `@main` or branch references as they may contain breaking changes.
+> ⚠️ **Deprecated** — will be removed in a future release
 
-## Contributing
+```yaml
+- name: Generate Doxygen Documentation
+  uses: eclipse-keypop/keypop-actions/doxygen@v2
+```
+
+## 📖 Versioning & Tags
+
+This repository contains multiple components. To manage them independently, all release tags follow this naming convention:
+
+**`<component-name>-<version>`**
+
+* **Full Version Tags** (e.g., `publish-release-v1.2.3`, `publish-snapshot-v1.0.0`, ...):
+  These represent a specific, immutable release of a component.
+
+* **Major Version Tags** (e.g., `publish-release-v1`, `publish-snapshot-v2`, ...):
+  These are floating tags that point to the latest non-breaking release within their major series. They are updated with each new compatible minor or patch release.
+
+* **Branches** (e.g., `main`):
+  Branch names are not considered stable versions. They represent ongoing development and their state can change at any time.
+
+## 🚀 Migrating from the old layout
+
+Replace `uses: eclipse-keypop/keypop-actions/doxygen@v2` by `uses: eclipse-keypop/keypop-actions/actions/doxygen@doxygen-v1`
+
+---
+
+## 🤝 Contributing
 
 Please read our [contribution guidelines](https://keypop.org/community/contributing/) before submitting any changes.
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
