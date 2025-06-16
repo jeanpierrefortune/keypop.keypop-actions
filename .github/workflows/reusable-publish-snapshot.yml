@@ -1,0 +1,60 @@
+name: Reusable - Publish Snapshot to Maven Central
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        required: false
+        default: '17'
+        type: string
+      java-distribution:
+        required: false
+        default: 'temurin'
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ inputs.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: ${{ inputs.java-distribution }}
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Extract project name and version
+        id: metadata
+        run: |
+          PROJECT_NAME=$(./gradlew -q properties | grep "^rootProject:" | awk '{print $2}')
+          PROJECT_VERSION=$(./gradlew -q properties | grep "^version:" | awk '{print $2}')
+          echo "project-name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "project-version=$PROJECT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and publish snapshot to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_sonatypeURL: https://central.sonatype.com/repository/maven-snapshots/
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.CENTRAL_SONATYPE_TOKEN_USERNAME }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.CENTRAL_SONATYPE_TOKEN_PASSWORD }}
+        run: |
+          echo "Building and publishing snapshot package..."
+          ./gradlew build publish --info --stacktrace
+
+      - name: Upload artifacts to Eclipse server
+        uses: eclipse-keypop/keypop-actions/actions/deploy-to-eclipse@deploy-to-eclipse-v1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          is-release: false
+
+      - name: Update documentation branch
+        uses: eclipse-keypop/keypop-actions/actions/update-doc-branch@update-doc-branch-v1
+        with:
+          project-name: ${{ steps.metadata.outputs.project-name }}
+          project-version: ${{ steps.metadata.outputs.project-version }}

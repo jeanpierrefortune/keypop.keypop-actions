@@ -1,0 +1,52 @@
+name: Upload artifacts to Eclipse server
+description: Uploads artifacts to download.eclipse.org via SSH
+inputs:
+  ssh-private-key:
+    required: true
+    description: SSH private key for login to Eclipse server
+  ssh-passphrase:
+    required: true
+    description: Passphrase for the SSH private key
+  is-release:
+    required: true
+    description: "true" if this is a release; otherwise "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up SSH key
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh-private-key }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        eval $(ssh-agent)
+        echo "$SSH_PASSPHRASE" | SSH_ASKPASS=/bin/false ssh-add ~/.ssh/id_rsa
+        ssh-keyscan projects-storage.eclipse.org >> ~/.ssh/known_hosts
+      env:
+        SSH_PASSPHRASE: ${{ inputs.ssh-passphrase }}
+
+    - name: Create repository folder and collect JARs
+      shell: bash
+      run: |
+        mkdir -p repository
+        find . -path "*build/libs/*.jar" -exec cp {} repository/ \;
+        echo "Artifacts found:"
+        ls -l repository/
+
+    - name: Determine upload target
+      id: context
+      shell: bash
+      run: |
+        if [ "${{ inputs.is-release }}" = "true" ]; then
+          echo "version_type=releases" >> $GITHUB_OUTPUT
+        else
+          echo "version_type=snapshots" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload artifacts to Eclipse server
+      shell: bash
+      run: |
+        echo "Uploading to: ${{ steps.context.outputs.version_type }}"
+        ssh genie.keypop@projects-storage.eclipse.org "rm -rf /home/data/httpd/download.eclipse.org/keypop/${{ steps.context.outputs.version_type }} && mkdir -p /home/data/httpd/download.eclipse.org/keypop/${{ steps.context.outputs.version_type }}"
+        scp -r repository/* genie.keypop@projects-storage.eclipse.org:/home/data/httpd/download.eclipse.org/keypop/${{ steps.context.outputs.version_type }}
